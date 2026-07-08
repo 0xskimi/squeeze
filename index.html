@@ -58,7 +58,21 @@
 
   <footer class="footer">
     <span class="footer-year">&copy; 2026 Squeeze</span>
-    <a href="https://tentacore.xyz" class="footer-link">A Tentacore project</a>
+    <div class="footer-links">
+      <div class="tip-wrap">
+        <button type="button" class="footer-link tip-trigger" id="tip-trigger" aria-expanded="false" aria-controls="tip-popover">
+          <i data-lucide="circle-dollar-sign"></i>
+          <span>Tip USDC</span>
+        </button>
+        <div class="tip-popover" id="tip-popover" hidden>
+          <canvas id="tip-qr" class="tip-qr" aria-hidden="true"></canvas>
+          <p class="tip-label">USDC on Solana</p>
+          <p class="tip-address" id="tip-address"></p>
+          <button type="button" class="tip-copy" id="tip-copy">Copy address</button>
+        </div>
+      </div>
+      <a href="https://tentacore.xyz" class="footer-link">A Tentacore project</a>
+    </div>
   </footer>
 
   <script type="module" src="/src/main.ts"></script>

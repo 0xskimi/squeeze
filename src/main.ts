@@ -2,6 +2,7 @@ declare const lucide: { createIcons: () => void } | undefined;
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { initUsdcTip } from './support';
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const MAX_JOBS = 5;
@@ -481,6 +482,7 @@ function initTheme() {
 }
 
 initTheme();
+initUsdcTip();
 refreshIcons();
 updateDropzone();
 
