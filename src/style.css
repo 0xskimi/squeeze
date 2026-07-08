@@ -210,7 +210,7 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
 
 .job {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   padding: 14px;
   background: var(--surface);
@@ -238,7 +238,14 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
 .job-body {
   flex: 1;
   min-width: 0;
-  padding-top: 2px;
+}
+
+.job-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .job-row {
@@ -246,11 +253,12 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
+  margin-top: 3px;
 }
 
 .job-label {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .job-value,
@@ -260,11 +268,22 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   white-space: nowrap;
 }
 
-.job-actions {
+.job-meta {
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-meta-new {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.job-side {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .progress-track {
@@ -287,31 +306,29 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   transition: width 0.2s ease;
 }
 
-.btn-download {
+.btn-icon {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--surface-muted);
   color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   transition: border-color 0.15s, background-color 0.15s;
 }
 
-.btn-download:hover {
+.btn-icon:hover {
   border-color: var(--border-strong);
   background: var(--bg);
 }
 
-.btn-download svg {
-  width: 14px;
-  height: 14px;
+.btn-icon svg {
+  width: 15px;
+  height: 15px;
   color: var(--text-secondary);
 }
 
@@ -336,12 +353,8 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   background: var(--surface-muted);
 }
 
-.job--error .job-row {
-  margin-bottom: 8px;
-}
-
-.job--grew .job-label {
-  color: var(--text-secondary);
+.job--error .job-label {
+  color: var(--text);
 }
 
 .privacy-note {

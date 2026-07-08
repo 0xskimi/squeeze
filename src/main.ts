@@ -143,8 +143,17 @@ interface JobEl {
 
 const jobEls = new Map<string, JobEl>();
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function cardMarkup(job: Job): string {
   const video = `<video src="${job.previewUrl}" class="job-video" muted loop autoplay playsinline preload="auto" aria-hidden="true"></video>`;
+  const name = escapeHtml(job.file.name);
 
   if (job.state === 'done') {
     const grew = (job.savedPercent ?? 0) < 0;
@@ -152,17 +161,14 @@ function cardMarkup(job: Job): string {
       <article class="job job--done${grew ? ' job--grew' : ''}" data-id="${job.id}">
         <div class="job-thumb">${video}</div>
         <div class="job-body">
-          <div class="job-row">
-            <span class="job-label">${job.label}</span>
-            <span class="job-meta">${formatBytes(job.originalSize)} → ${formatBytes(job.outputSize ?? 0)}</span>
-          </div>
-          <div class="job-actions">
-            <a class="btn-download" href="${job.outputUrl}" download="${job.downloadName}">
-              <i data-lucide="download"></i>
-              <span>Download</span>
-            </a>
-            <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove">×</button>
-          </div>
+          <p class="job-name" title="${name}">${name}</p>
+          <p class="job-meta">${formatBytes(job.originalSize)} → <span class="job-meta-new">${formatBytes(job.outputSize ?? 0)}</span> · ${job.label}</p>
+        </div>
+        <div class="job-side">
+          <a class="btn-icon" href="${job.outputUrl}" download="${job.downloadName}" aria-label="Download" title="Download">
+            <i data-lucide="download"></i>
+          </a>
+          <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove" title="Remove">×</button>
         </div>
       </article>
     `;
@@ -173,11 +179,11 @@ function cardMarkup(job: Job): string {
       <article class="job job--error" data-id="${job.id}">
         <div class="job-thumb">${video}</div>
         <div class="job-body">
-          <div class="job-row">
-            <span class="job-label">${job.label}</span>
-            <span class="job-value">${job.value}</span>
-          </div>
-          <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove">×</button>
+          <p class="job-name" title="${name}">${name}</p>
+          <p class="job-meta"><span class="job-label">${job.label}</span> · <span class="job-value">${job.value}</span></p>
+        </div>
+        <div class="job-side">
+          <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove" title="Remove">×</button>
         </div>
       </article>
     `;
@@ -187,6 +193,7 @@ function cardMarkup(job: Job): string {
     <article class="job" data-id="${job.id}">
       <div class="job-thumb">${video}</div>
       <div class="job-body">
+        <p class="job-name" title="${name}">${name}</p>
         <div class="job-row">
           <span class="job-label">${job.label}</span>
           <span class="job-value">${job.value}</span>
