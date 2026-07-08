@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { SOLANA_USDC_ADDRESS, USDC_MINT } from './config';
+import { haptic } from './haptics';
 
 function usdcPaymentUri(address: string): string {
   return `solana:${address}?spl-token=${USDC_MINT}`;
@@ -42,6 +43,7 @@ export function initUsdcTip() {
   const open = () => {
     popover.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
+    haptic('light');
   };
 
   trigger.addEventListener('click', (e) => {
@@ -52,6 +54,7 @@ export function initUsdcTip() {
 
   copyBtn.addEventListener('click', async () => {
     await navigator.clipboard.writeText(SOLANA_USDC_ADDRESS);
+    haptic('success');
     const original = copyBtn.textContent;
     copyBtn.textContent = 'Copied';
     window.setTimeout(() => {

@@ -3,6 +3,7 @@ declare const lucide: { createIcons: () => void } | undefined;
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { initUsdcTip } from './support';
+import { haptic } from './haptics';
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const MAX_JOBS = 5;
@@ -263,7 +264,10 @@ function renderJobs() {
       jobList.appendChild(entry.root);
       jobEls.set(job.id, entry);
       needsIcons = true;
+      if (job.state === 'error') haptic('error');
     } else if (entry.state !== job.state) {
+      if (job.state === 'done') haptic('success');
+      else if (job.state === 'error') haptic('error');
       const next = buildCard(job);
       entry.root.replaceWith(next.root);
       jobEls.set(job.id, next);
@@ -285,6 +289,7 @@ function removeJob(id: string) {
   const [job] = jobs.splice(index, 1);
   if (job.outputUrl) URL.revokeObjectURL(job.outputUrl);
   URL.revokeObjectURL(job.previewUrl);
+  haptic('light');
   renderJobs();
   pumpQueue();
 }
@@ -447,6 +452,9 @@ function handleFiles(files: FileList | null) {
 
   if (!toAdd.length) return;
 
+  let added = 0;
+  let rejected = 0;
+
   for (const file of toAdd) {
     if (file.size > MAX_BYTES) {
       const job: Job = {
@@ -460,10 +468,15 @@ function handleFiles(files: FileList | null) {
         originalSize: file.size,
       };
       jobs.push(job);
+      rejected += 1;
       continue;
     }
     addJob(file);
+    added += 1;
   }
+
+  if (added > 0) haptic('nudge');
+  else if (rejected > 0) haptic('error');
 
   fileInput.value = '';
   renderJobs();
@@ -474,6 +487,7 @@ function initTheme() {
   const root = document.documentElement;
 
   themeToggle.addEventListener('click', () => {
+    haptic('selection');
     const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
     localStorage.setItem('squeeze-theme', next);
@@ -489,6 +503,7 @@ updateDropzone();
 dropzone.addEventListener('dragover', (e) => {
   if (jobs.length >= MAX_JOBS) return;
   e.preventDefault();
+  if (!dropzone.classList.contains('is-dragover')) haptic('selection');
   dropzone.classList.add('is-dragover');
 });
 
