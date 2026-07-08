@@ -205,7 +205,7 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-top: 16px;
 }
 
 .job {
