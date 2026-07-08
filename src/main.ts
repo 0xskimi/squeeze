@@ -11,16 +11,22 @@ const CORE_BASE = `https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@${CORE_VERSION}/
 
 const ENCODE_PROFILES = [
   {
-    vf: "scale='min(1280,iw)':-2",
-    crf: '28',
+    vf: "scale='min(1280,iw)':-2,fps='min(30,source_fps)'",
+    crf: '30',
     preset: 'medium',
     audioBitrate: '96k',
   },
   {
-    vf: "scale='min(960,iw)':-2",
-    crf: '32',
+    vf: "scale='min(854,iw)':-2,fps='min(30,source_fps)'",
+    crf: '33',
     preset: 'medium',
     audioBitrate: '64k',
+  },
+  {
+    vf: "scale='min(640,iw)':-2,fps='min(24,source_fps)'",
+    crf: '35',
+    preset: 'medium',
+    audioBitrate: '48k',
   },
 ] as const;
 
@@ -125,79 +131,142 @@ function updateDropzone() {
   dropzoneNote.textContent = atLimit ? '5 videos max' : 'Up to 32MB each';
 }
 
-function renderJobs() {
-  jobList.hidden = jobs.length === 0;
-  jobList.innerHTML = jobs.map((job) => {
-    const isActive = job.state !== 'done' && job.state !== 'error';
-    const showProgress = job.progress !== null && isActive;
+interface JobEl {
+  root: HTMLElement;
+  state: JobState;
+  label: HTMLElement | null;
+  value: HTMLElement | null;
+  meta: HTMLElement | null;
+  track: HTMLElement | null;
+  bar: HTMLElement | null;
+}
 
-    if (job.state === 'done') {
-      const grew = (job.savedPercent ?? 0) < 0;
-      return `
-        <article class="job job--done${grew ? ' job--grew' : ''}" data-id="${job.id}">
-          <div class="job-thumb">
-            <video src="${job.previewUrl}" class="job-video" muted playsinline preload="metadata" aria-hidden="true"></video>
-          </div>
-          <div class="job-body">
-            <div class="job-row">
-              <span class="job-label">${job.label}</span>
-              <span class="job-meta">${formatBytes(job.originalSize)} → ${formatBytes(job.outputSize ?? 0)}</span>
-            </div>
-            <div class="job-actions">
-              <a class="btn-download" href="${job.outputUrl}" download="${job.downloadName}">
-                <i data-lucide="download"></i>
-                <span>Download</span>
-              </a>
-              <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove">×</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }
+const jobEls = new Map<string, JobEl>();
 
-    if (job.state === 'error') {
-      return `
-        <article class="job job--error" data-id="${job.id}">
-          <div class="job-thumb">
-            <video src="${job.previewUrl}" class="job-video" muted playsinline preload="metadata" aria-hidden="true"></video>
+function cardMarkup(job: Job): string {
+  const video = `<video src="${job.previewUrl}" class="job-video" muted loop autoplay playsinline preload="auto" aria-hidden="true"></video>`;
+
+  if (job.state === 'done') {
+    const grew = (job.savedPercent ?? 0) < 0;
+    return `
+      <article class="job job--done${grew ? ' job--grew' : ''}" data-id="${job.id}">
+        <div class="job-thumb">${video}</div>
+        <div class="job-body">
+          <div class="job-row">
+            <span class="job-label">${job.label}</span>
+            <span class="job-meta">${formatBytes(job.originalSize)} → ${formatBytes(job.outputSize ?? 0)}</span>
           </div>
-          <div class="job-body">
-            <div class="job-row">
-              <span class="job-label">${job.label}</span>
-              <span class="job-value">${job.value}</span>
-            </div>
+          <div class="job-actions">
+            <a class="btn-download" href="${job.outputUrl}" download="${job.downloadName}">
+              <i data-lucide="download"></i>
+              <span>Download</span>
+            </a>
             <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove">×</button>
           </div>
-        </article>
-      `;
-    }
-
-    return `
-      <article class="job" data-id="${job.id}">
-        <div class="job-thumb">
-          <video src="${job.previewUrl}" class="job-video" muted playsinline preload="metadata" aria-hidden="true"></video>
         </div>
+      </article>
+    `;
+  }
+
+  if (job.state === 'error') {
+    return `
+      <article class="job job--error" data-id="${job.id}">
+        <div class="job-thumb">${video}</div>
         <div class="job-body">
           <div class="job-row">
             <span class="job-label">${job.label}</span>
             <span class="job-value">${job.value}</span>
           </div>
-          <div class="progress-track${showProgress ? '' : ' is-hidden'}">
-            <div class="progress-bar" style="width: ${showProgress ? Math.round((job.progress ?? 0) * 100) : 0}%"></div>
-          </div>
+          <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove">×</button>
         </div>
       </article>
     `;
-  }).join('');
+  }
 
-  jobList.querySelectorAll('[data-remove]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = (btn as HTMLButtonElement).dataset.remove;
-      if (id) removeJob(id);
-    });
-  });
+  return `
+    <article class="job" data-id="${job.id}">
+      <div class="job-thumb">${video}</div>
+      <div class="job-body">
+        <div class="job-row">
+          <span class="job-label">${job.label}</span>
+          <span class="job-value">${job.value}</span>
+        </div>
+        <div class="progress-track is-hidden">
+          <div class="progress-bar" style="width: 0%"></div>
+        </div>
+      </div>
+    </article>
+  `;
+}
 
-  refreshIcons();
+function buildCard(job: Job): JobEl {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = cardMarkup(job).trim();
+  const root = wrapper.firstElementChild as HTMLElement;
+
+  const removeBtn = root.querySelector<HTMLButtonElement>('[data-remove]');
+  removeBtn?.addEventListener('click', () => removeJob(job.id));
+
+  return {
+    root,
+    state: job.state,
+    label: root.querySelector('.job-label'),
+    value: root.querySelector('.job-value'),
+    meta: root.querySelector('.job-meta'),
+    track: root.querySelector('.progress-track'),
+    bar: root.querySelector('.progress-bar'),
+  };
+}
+
+function patchCard(entry: JobEl, job: Job) {
+  if (entry.label && entry.label.textContent !== job.label) {
+    entry.label.textContent = job.label;
+  }
+  if (entry.value && entry.value.textContent !== job.value) {
+    entry.value.textContent = job.value;
+  }
+
+  const isActive = job.state !== 'done' && job.state !== 'error';
+  const showProgress = job.progress !== null && isActive;
+  if (entry.track) {
+    entry.track.classList.toggle('is-hidden', !showProgress);
+  }
+  if (entry.bar) {
+    entry.bar.style.width = `${showProgress ? Math.round((job.progress ?? 0) * 100) : 0}%`;
+  }
+}
+
+function renderJobs() {
+  jobList.hidden = jobs.length === 0;
+
+  for (const [id, entry] of [...jobEls]) {
+    if (!jobs.some((j) => j.id === id)) {
+      entry.root.remove();
+      jobEls.delete(id);
+    }
+  }
+
+  let needsIcons = false;
+  for (const job of jobs) {
+    let entry = jobEls.get(job.id);
+
+    if (!entry) {
+      entry = buildCard(job);
+      jobList.appendChild(entry.root);
+      jobEls.set(job.id, entry);
+      needsIcons = true;
+    } else if (entry.state !== job.state) {
+      const next = buildCard(job);
+      entry.root.replaceWith(next.root);
+      jobEls.set(job.id, next);
+      entry = next;
+      needsIcons = true;
+    }
+
+    patchCard(entry, job);
+  }
+
+  if (needsIcons) refreshIcons();
   updateDropzone();
 }
 
