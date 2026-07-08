@@ -415,7 +415,7 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
 
 .tip-popover {
   position: absolute;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
   width: 148px;
@@ -426,6 +426,14 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   text-align: center;
   z-index: 10;
+}
+
+@media (min-width: 480px) {
+  .tip-popover {
+    top: 50%;
+    left: calc(100% + 14px);
+    transform: translateY(-50%);
+  }
 }
 
 html[data-theme="dark"] .tip-popover {
