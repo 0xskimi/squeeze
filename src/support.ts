@@ -11,15 +11,15 @@ function shortenAddress(address: string): string {
 }
 
 export function initUsdcTip() {
+  const stand = document.getElementById('tip-stand') as HTMLDivElement | null;
   const trigger = document.getElementById('tip-trigger') as HTMLButtonElement | null;
   const popover = document.getElementById('tip-popover') as HTMLDivElement | null;
   const qr = document.getElementById('tip-qr') as HTMLCanvasElement | null;
   const addressEl = document.getElementById('tip-address') as HTMLParagraphElement | null;
   const copyBtn = document.getElementById('tip-copy') as HTMLButtonElement | null;
 
-  if (!SOLANA_USDC_ADDRESS || !trigger || !popover || !qr || !addressEl || !copyBtn) {
-    trigger?.remove();
-    popover?.remove();
+  if (!SOLANA_USDC_ADDRESS || !stand || !trigger || !popover || !qr || !addressEl || !copyBtn) {
+    stand?.remove();
     return;
   }
 
