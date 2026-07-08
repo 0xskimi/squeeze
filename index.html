@@ -34,49 +34,25 @@
   <main class="stage">
     <header class="intro">
       <h1 class="headline">Make your videos smaller.</h1>
-      <p class="subhead">Drop in a video and get a lighter one back, ready to share online. It all happens right here on your device.</p>
+      <p class="subhead">Drop in videos and get lighter ones back, ready to share online. Add up to 5 at a time. It all happens right here on your device.</p>
     </header>
 
     <section class="workspace" id="workspace">
+      <div class="job-list" id="job-list" hidden></div>
+
       <label class="dropzone" id="dropzone" for="file-input">
-        <input type="file" id="file-input" accept="video/*" hidden>
+        <input type="file" id="file-input" accept="video/*" multiple hidden>
         <div class="dropzone-inner" id="dropzone-inner">
           <span class="dropzone-icon" aria-hidden="true">
             <i data-lucide="clapperboard"></i>
           </span>
-          <p class="dropzone-title">Drop a video here</p>
-          <p class="dropzone-sub">or click to pick one</p>
-          <p class="dropzone-note">Up to 32MB</p>
+          <p class="dropzone-title">Drop videos here</p>
+          <p class="dropzone-sub">or click to pick</p>
+          <p class="dropzone-note" id="dropzone-note">Up to 32MB each</p>
         </div>
       </label>
 
-      <div class="status" id="status" hidden>
-        <div class="status-row">
-          <span class="status-label" id="status-label">Getting ready</span>
-          <span class="status-value" id="status-value"></span>
-        </div>
-        <div class="progress-track" id="progress-track" hidden>
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-      </div>
-
-      <div class="result" id="result" hidden>
-        <div class="result-headline">
-          <span class="result-saved" id="saved-percent">—</span>
-          <span class="result-saved-label">smaller</span>
-        </div>
-        <div class="result-sizes">
-          <span id="original-size">—</span>
-          <i data-lucide="arrow-right" class="result-arrow" aria-hidden="true"></i>
-          <span class="result-after" id="output-size">—</span>
-        </div>
-        <div class="result-actions">
-          <a class="btn btn-primary" id="download-link" download>Download video</a>
-          <button type="button" class="btn btn-ghost" id="reset-btn">Squeeze another</button>
-        </div>
-      </div>
-
-      <p class="privacy-note">Your video stays on your device. It is never sent anywhere.</p>
+      <p class="privacy-note">Your videos stay on your device. They are never sent anywhere.</p>
     </section>
   </main>
 
