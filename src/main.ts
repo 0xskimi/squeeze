@@ -9,17 +9,58 @@ const MAX_PARALLEL = 3;
 const CORE_VERSION = '0.12.10';
 const CORE_BASE = `https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@${CORE_VERSION}/dist/esm`;
 
-const ENCODE_ARGS = [
-  '-i', 'input',
-  '-c:v', 'libx264',
-  '-preset', 'fast',
-  '-crf', '22',
-  '-c:a', 'aac',
-  '-b:a', '128k',
-  '-movflags', '+faststart',
-  '-pix_fmt', 'yuv420p',
-  'output.mp4',
-];
+const ENCODE_PROFILES = [
+  {
+    vf: "scale='min(1280,iw)':-2",
+    crf: '28',
+    preset: 'medium',
+    audioBitrate: '96k',
+  },
+  {
+    vf: "scale='min(960,iw)':-2",
+    crf: '32',
+    preset: 'medium',
+    audioBitrate: '64k',
+  },
+] as const;
+
+function buildEncodeArgs(inputName: string, outputName: string, profile: (typeof ENCODE_PROFILES)[number]): string[] {
+  return [
+    '-i', inputName,
+    '-map', '0:v:0',
+    '-map', '0:a:0?',
+    '-vf', profile.vf,
+    '-c:v', 'libx264',
+    '-preset', profile.preset,
+    '-crf', profile.crf,
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', profile.audioBitrate,
+    '-ac', '2',
+    '-movflags', '+faststart',
+    outputName,
+  ];
+}
+
+function fileBytes(data: Uint8Array | string): Uint8Array<ArrayBuffer> {
+  if (typeof data === 'string') {
+    return new TextEncoder().encode(data);
+  }
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy;
+}
+
+function reductionPercent(originalSize: number, outputSize: number): number {
+  if (originalSize <= 0) return 0;
+  return Math.round((1 - outputSize / originalSize) * 100);
+}
+
+function formatReductionLabel(percent: number): string {
+  if (percent > 0) return `${percent}% smaller`;
+  if (percent < 0) return `${Math.abs(percent)}% larger`;
+  return 'Same size';
+}
 
 type JobState = 'queued' | 'preparing' | 'reading' | 'squeezing' | 'done' | 'error';
 
@@ -90,14 +131,15 @@ function renderJobs() {
     const showProgress = job.progress !== null && isActive;
 
     if (job.state === 'done') {
+      const grew = (job.savedPercent ?? 0) < 0;
       return `
-        <article class="job job--done" data-id="${job.id}">
+        <article class="job job--done${grew ? ' job--grew' : ''}" data-id="${job.id}">
           <div class="job-thumb">
             <video src="${job.previewUrl}" class="job-video" muted playsinline preload="metadata" aria-hidden="true"></video>
           </div>
           <div class="job-body">
             <div class="job-row">
-              <span class="job-label">${job.savedPercent}% smaller</span>
+              <span class="job-label">${job.label}</span>
               <span class="job-meta">${formatBytes(job.originalSize)} → ${formatBytes(job.outputSize ?? 0)}</span>
             </div>
             <div class="job-actions">
@@ -221,6 +263,47 @@ function inputExtension(file: File): string {
   return ext.replace(/[^a-z0-9]/g, '') || 'mp4';
 }
 
+async function encodeOutput(
+  encoder: FFmpeg,
+  job: Job,
+  inputName: string,
+  outputName: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  let bestBytes: Uint8Array<ArrayBuffer> | null = null;
+
+  for (let index = 0; index < ENCODE_PROFILES.length; index += 1) {
+    const profile = ENCODE_PROFILES[index];
+    updateJob(job, {
+      state: 'squeezing',
+      label: index === 0 ? 'Squeezing your video' : 'Trying a stronger squeeze',
+      value: '0%',
+      progress: 0,
+    });
+
+    const exitCode = await encoder.exec(buildEncodeArgs(inputName, outputName, profile));
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg exited with code ${exitCode}`);
+    }
+
+    const bytes = fileBytes(await encoder.readFile(outputName));
+    await encoder.deleteFile(outputName);
+
+    if (!bestBytes || bytes.byteLength < bestBytes.byteLength) {
+      bestBytes = bytes;
+    }
+
+    if (bytes.byteLength < job.file.size) {
+      return bytes;
+    }
+  }
+
+  if (!bestBytes) {
+    throw new Error('No encoded output produced');
+  }
+
+  return bestBytes;
+}
+
 async function runJob(worker: WorkerSlot, job: Job) {
   try {
     const encoder = await loadWorkerFfmpeg(worker, job);
@@ -230,34 +313,24 @@ async function runJob(worker: WorkerSlot, job: Job) {
     updateJob(job, { state: 'reading', label: 'Reading your video', value: '', progress: null });
     await encoder.writeFile(inputName, await fetchFile(job.file));
 
-    updateJob(job, { state: 'squeezing', label: 'Squeezing your video', value: '0%', progress: 0 });
-    const args = ENCODE_ARGS.map((arg) => {
-      if (arg === 'input') return inputName;
-      if (arg === 'output.mp4') return outputName;
-      return arg;
-    });
-    await encoder.exec(args);
-
-    const data = await encoder.readFile(outputName);
-    const bytes = data instanceof Uint8Array ? Uint8Array.from(data) : new TextEncoder().encode(String(data));
+    const bytes = await encodeOutput(encoder, job, inputName, outputName);
     const blob = new Blob([bytes], { type: 'video/mp4' });
     const outputUrl = URL.createObjectURL(blob);
-    const saved = job.file.size > 0 ? Math.round((1 - blob.size / job.file.size) * 100) : 0;
+    const saved = reductionPercent(job.file.size, blob.size);
     const baseName = job.file.name.replace(/\.[^.]+$/, '') || 'video';
 
     updateJob(job, {
       state: 'done',
-      label: '',
+      label: formatReductionLabel(saved),
       value: '',
       progress: null,
       outputUrl,
       downloadName: `${baseName}-smaller.mp4`,
-      savedPercent: saved > 0 ? saved : 0,
+      savedPercent: saved,
       outputSize: blob.size,
     });
 
     await encoder.deleteFile(inputName);
-    await encoder.deleteFile(outputName);
   } catch (error) {
     console.error(error);
     updateJob(job, {

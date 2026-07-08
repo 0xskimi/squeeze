@@ -340,6 +340,10 @@ html[data-theme="dark"] .theme-icon--sun { display: block; }
   margin-bottom: 8px;
 }
 
+.job--grew .job-label {
+  color: var(--text-secondary);
+}
+
 .privacy-note {
   margin-top: 20px;
   font-size: 13px;
