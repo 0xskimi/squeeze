@@ -1,5 +1,6 @@
 declare const lucide: { createIcons: () => void } | undefined;
 
+import '@fontsource-variable/manrope';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { initUsdcTip } from './support';
@@ -85,6 +86,7 @@ interface Job {
   savedPercent?: number;
   originalSize: number;
   outputSize?: number;
+  retryable?: boolean;
 }
 
 interface WorkerSlot {
@@ -163,8 +165,14 @@ function cardMarkup(job: Job): string {
       <article class="job job--done${grew ? ' job--grew' : ''}" data-id="${job.id}">
         <div class="job-thumb">${video}</div>
         <div class="job-body">
-          <p class="job-name" title="${name}">${name}</p>
-          <p class="job-meta">${formatBytes(job.originalSize)} → <span class="job-meta-new">${formatBytes(job.outputSize ?? 0)}</span> · ${job.label}</p>
+          <div class="job-head">
+            <p class="job-name" title="${name}">${name}</p>
+            <span class="job-pill job-pill--${grew ? 'neutral' : 'done'}">
+              <i data-lucide="${grew ? 'circle-alert' : 'circle-check'}"></i>
+              <span>${job.label}</span>
+            </span>
+          </div>
+          <p class="job-meta">${formatBytes(job.originalSize)} → <span class="job-meta-new">${formatBytes(job.outputSize ?? 0)}</span></p>
         </div>
         <div class="job-side">
           <a class="btn-icon" href="${job.outputUrl}" download="${job.downloadName}" aria-label="Download" title="Download">
@@ -181,10 +189,21 @@ function cardMarkup(job: Job): string {
       <article class="job job--error" data-id="${job.id}">
         <div class="job-thumb">${video}</div>
         <div class="job-body">
-          <p class="job-name" title="${name}">${name}</p>
-          <p class="job-meta"><span class="job-label">${job.label}</span> · <span class="job-value">${job.value}</span></p>
+          <div class="job-head">
+            <p class="job-name" title="${name}">${name}</p>
+            <span class="job-pill job-pill--error">
+              <span class="job-pill-mark" aria-hidden="true">!</span>
+              <span class="job-label">${job.label}</span>
+            </span>
+          </div>
+          <p class="job-meta"><span class="job-value">${job.value}</span></p>
         </div>
         <div class="job-side">
+          ${job.retryable ? `
+          <button type="button" class="job-retry" data-retry="${job.id}" aria-label="Retry" title="Retry">
+            <i data-lucide="refresh-cw"></i>
+            <span class="job-action-text">Retry</span>
+          </button>` : ''}
           <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove" title="Remove">×</button>
         </div>
       </article>
@@ -215,6 +234,9 @@ function buildCard(job: Job): JobEl {
 
   const removeBtn = root.querySelector<HTMLButtonElement>('[data-remove]');
   removeBtn?.addEventListener('click', () => removeJob(job.id));
+
+  const retryBtn = root.querySelector<HTMLButtonElement>('[data-retry]');
+  retryBtn?.addEventListener('click', () => retryJob(job.id));
 
   return {
     root,
@@ -291,6 +313,21 @@ function removeJob(id: string) {
   URL.revokeObjectURL(job.previewUrl);
   haptic('light');
   renderJobs();
+  pumpQueue();
+}
+
+function retryJob(id: string) {
+  const job = jobs.find((j) => j.id === id);
+  if (!job || job.state !== 'error' || !job.retryable) return;
+
+  haptic('nudge');
+  updateJob(job, {
+    state: 'queued',
+    label: 'Waiting to start',
+    value: '',
+    progress: null,
+    retryable: false,
+  });
   pumpQueue();
 }
 
@@ -416,11 +453,13 @@ async function runJob(worker: WorkerSlot, job: Job) {
     await encoder.deleteFile(inputName);
   } catch (error) {
     console.error(error);
+    if (!worker.ffmpeg) worker.loadPromise = null;
     updateJob(job, {
       state: 'error',
-      label: 'Something went wrong',
-      value: 'Try a different file',
+      label: 'Squeeze failed',
+      value: 'Retry, or try a different file',
       progress: null,
+      retryable: true,
     });
   }
 }
@@ -462,7 +501,7 @@ function handleFiles(files: FileList | null) {
         file,
         previewUrl: URL.createObjectURL(file),
         state: 'error',
-        label: 'That file is too big',
+        label: 'Too big',
         value: 'Try one under 32MB',
         progress: null,
         originalSize: file.size,
