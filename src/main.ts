@@ -1,5 +1,6 @@
 declare const lucide: { createIcons: () => void } | undefined;
 
+import '@fontsource-variable/manrope';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { initUsdcTip } from './support';
@@ -131,7 +132,7 @@ function updateDropzone() {
   const atLimit = jobs.length >= MAX_JOBS;
   dropzone.classList.toggle('is-disabled', atLimit);
   fileInput.disabled = atLimit;
-  dropzoneNote.textContent = atLimit ? '(5 videos max)' : '(32MB max)';
+  dropzoneNote.textContent = atLimit ? '5 videos max' : 'Up to 32MB each';
 }
 
 interface JobEl {
@@ -166,7 +167,7 @@ function cardMarkup(job: Job): string {
         <div class="job-body">
           <div class="job-head">
             <p class="job-name" title="${name}">${name}</p>
-            <span class="job-pill job-pill--${grew ? 'neutral' : 'success'}">
+            <span class="job-pill job-pill--${grew ? 'neutral' : 'done'}">
               <i data-lucide="${grew ? 'circle-alert' : 'circle-check'}"></i>
               <span>${job.label}</span>
             </span>
@@ -174,9 +175,8 @@ function cardMarkup(job: Job): string {
           <p class="job-meta">${formatBytes(job.originalSize)} → <span class="job-meta-new">${formatBytes(job.outputSize ?? 0)}</span></p>
         </div>
         <div class="job-side">
-          <a class="btn job-action" href="${job.outputUrl}" download="${job.downloadName}" aria-label="Download" title="Download">
+          <a class="btn-icon" href="${job.outputUrl}" download="${job.downloadName}" aria-label="Download" title="Download">
             <i data-lucide="download"></i>
-            <span class="job-action-text">Download</span>
           </a>
           <button type="button" class="job-remove" data-remove="${job.id}" aria-label="Remove" title="Remove">×</button>
         </div>
